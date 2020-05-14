@@ -1,6 +1,37 @@
 -- Exploring and Processing OSM data in PostgrSQL
 
+-- Define functions
+CREATE OR REPLACE FUNCTION get_ints_from_text(TEXT) RETURNS int[] AS $$
+  select array_remove(regexp_split_to_array($1,'[^0-9]+','i'),'')::int[];
+$$ LANGUAGE SQL IMMUTABLE;
 
+CREATE FUNCTION _final_median(anyarray) RETURNS float8 AS $$
+  WITH q AS
+  (
+     SELECT val
+     FROM unnest($1) val
+     WHERE VAL IS NOT NULL
+     ORDER BY 1
+  ),
+  cnt AS
+  (
+    SELECT COUNT(*) AS c FROM q
+  )
+  SELECT AVG(val)::float8
+  FROM
+  (
+    SELECT val FROM q
+    LIMIT  2 - MOD((SELECT c FROM cnt), 2)
+    OFFSET GREATEST(CEIL((SELECT c FROM cnt) / 2.0) - 1,0)
+  ) q2;
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE AGGREGATE median(anyelement) (
+  SFUNC=array_append,
+  STYPE=anyarray,
+  FINALFUNC=_final_median,
+  INITCOND='{}'
+);
 
 --DROP SCHEMA IF EXISTS tags_summary;
 CREATE SCHEMA tags_summary;
@@ -65,7 +96,7 @@ CREATE SCHEMA graphs;
 DROP TABLE IF EXISTS graphs.car_network CASCADE;
 CREATE TABLE graphs.car_network AS
     SELECT nodes[1] AS start_node, nodes[array_upper(nodes, 1)] as end_node, id as edge_id, tags,
-           ST_Length(linestring) AS length,  split_part((tags -> 'maxspeed'), ' ',1)::INTEGER AS speed_limit, linestring
+           ST_Length(linestring) AS length,  (get_ints_from_text((tags -> 'maxspeed')))[1] AS speed_limit, (tags -> 'highway') AS highway, linestring
     FROM ways
     WHERE
         -- what to include from the highway tags
@@ -82,7 +113,30 @@ DELETE FROM graphs.car_network WHERE
         OR (tags -> 'access') IN ('no','private')
         OR (tags -> 'service') IN ('parking_aisle','parking')
 ;
+-- Create a table to summarise irregular maxspeed values of highways
+DROP TABLE IF EXISTS graphs.highway_maxspeed_values;
+CREATE TABLE graphs.highway_maxspeed_values AS
+    SELECT highway, speed_limit, count(*) AS count FROM
+        (SELECT highway AS highway, speed_limit AS speed_limit
+            FROM graphs.car_network
+        ) AS stat
+    GROUP BY highway, speed_limit
+    ORDER BY highway, count DESC
+;
 
+-- Create a table to summarise median maxspeed values of highways for replacing NULLs in car_network
+DROP TABLE IF EXISTS graphs.highway_maxspeed_median;
+CREATE TABLE graphs.highway_maxspeed_median AS
+    SELECT highway, median(speed_limit) FROM graphs.car_network GROUP BY highway
+;
+
+-- Update car_network where there are NULLs with the median value of their highway category
+UPDATE graphs.car_network
+    SET speed_limit = graphs.highway_maxspeed_median.median
+    FROM graphs.highway_maxspeed_median
+    WHERE speed_limit is NULL
+    AND graphs.highway_maxspeed_median.highway = graphs.car_network.highway
+;
 -- We can include more features and add boolean attributes for each mode to allow selecting different subgraphs
 -- In this case it's clearer if we create a table and insert the elements of each mode.
 CREATE TABLE graphs.car_network (
