@@ -141,11 +141,8 @@ UPDATE graphs.car_network
 -- Create network nodes table for further routing with iGraph
 DROP TABLE IF EXISTS graphs.car_network_nodes;
 CREATE TABLE graphs.car_network_nodes AS
-    SELECT
-           start_node AS start_node_id FROM graphs.car_network,
-           ST_AsText(ST_Transform(geom, 4326)) AS start_node_coord FROM nodes WHERE id = (SELECT start_node from graphs.car_network),
-           end_node AS end_node_id FROM graphs.car_network,
-           ST_AsText(ST_Transform(geom, 4326)) AS end_node_coord FROM nodes WHERE id = (SELECT end_node from graphs.car_network)
+SELECT id AS node_id, ST_AsText(ST_Transform(geom, 4326)) AS node_coord
+        FROM nodes WHERE id IN (SELECT DISTINCT start_node FROM graphs.car_network UNION SELECT end_node FROM graphs.car_network)
 ;
 
 -- We can include more features and add boolean attributes for each mode to allow selecting different subgraphs
