@@ -65,8 +65,10 @@ To efficiently output analysis results from python to postgresql one needs to it
 The best is to use the VertexSeq and EdgeSeq classes, or vs and es properties of the Graph object, 
 which are iterators to get to all the values from the graph (original id and analysis results). 
 References for the different cases:
-https://igraph.org/python/doc/igraph.VertexSeq-class.html 
+https://igraph.org/python/doc/igraph.VertexSeq-class.html
+
 https://igraph.org/python/doc/igraph.EdgeSeq-class.html
+
 https://stackoverflow.com/questions/30986498/getting-vertex-list-from-python-igraph/53619896
 
 In the loop one can feed the values to a pandas data frame for further processing in python, or send them straight to the database.
@@ -78,6 +80,7 @@ The situation is even worse if we do update statements.
 **Fast Solution**
 The fastest method is by “piping” CSV text without saving to disk, directly into a table in the database using copy and some clever psycopg2 tricks.
 This blog post does an amazing job of explaining the different alternatives and comparing the performance in terms of memory and speed.
+
 https://hakibenita.com/fast-load-data-python-postgresql
 
 The end result is truly impressive!
@@ -88,9 +91,9 @@ The COPY and INSERT commands require a pre-created table using CREATE.
 The example provided above uses hard coded column names, and that is SQL best practice.
 To use COPY or INSERT without column names you have to make sure that all columns in the data frame match exactly all columns in the table in the database.
 This is the same approach as above, without column names, specific to pandas data frames since it uses the to_csv trick to great effect: 
-https://stackoverflow.com/questions/23103962/how-to-write-dataframe-to-postgres-table
 (See second response - "Faster option” by Aseem)
 
+https://stackoverflow.com/questions/23103962/how-to-write-dataframe-to-postgres-table
  
 ## Alternative approach to obtain routable network for pgrouting
 The OSM data can be pre-processed with osm2po to get the correct topology for the road network:
