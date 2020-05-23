@@ -7,6 +7,10 @@ The first step is to create a new database for OpenStreetMap and load a pbf file
 Then we need to explore the contents of the tags, focusing on highways. The best is to summarise, tags, values and counts in tables.
 
 ## Creating a graph table
+TODO: undirected and directed graph
+
+TODO: rebuild road geometry topologically by interesection nodes
+
 Finally, we need to create a graph table, i.e. a table where the first and last node of the link are in separate attributes.
 We should include additional attributes necessary for analysis and visualisation.
 
@@ -14,6 +18,8 @@ An alternative is to create a netwrok table for GIS visualisation, with a lot mo
 Then extract graphs from that with a minimal set f attributes, i.e. node and edge ids, and a cost column.
 
 ## Converting to Graph object
+TODO: undirected and directed graphs
+
 Final step in python is to convert the data table with the edges list to a igraph Graph object.
 Assuming we get the table from postgresql into a data frame, we iterate through the data frame extracting tuples, into a list or directly to the Graph method.
 
@@ -53,6 +59,69 @@ G.es[0]["cost"]
 
 # other parameters can be explored to produce different types of graphs
 ```
+
+## Importing results back into the database
+To efficiently output analysis results from python to postgresql one needs to iterate over the graph edges and/or vertices to extract all relevant attributes.
+The best is to use the VertexSeq and EdgeSeq classes, or vs and es properties of the Graph object, 
+which are iterators to get to all the values from the graph (original id and analysis results). 
+References for the different cases:
+https://igraph.org/python/doc/igraph.VertexSeq-class.html 
+https://igraph.org/python/doc/igraph.EdgeSeq-class.html
+https://stackoverflow.com/questions/30986498/getting-vertex-list-from-python-igraph/53619896
+
+In the loop one can feed the values to a pandas data frame for further processing in python, or send them straight to the database.
+The normal method from pandas to sql using sqlalchemy is not particularly fast.
+Also, using psycopg2 is not fast because we loop one record at a time and do multiple inserts.
+Even if we don’t commit after each operation it is slow.
+The situation is even worse if we do update statements.
+
+**Fast Solution**
+The fastest method is by “piping” CSV text without saving to disk, directly into a table in the database using copy and some clever psycopg2 tricks.
+This blog post does an amazing job of explaining the different alternatives and comparing the performance in terms of memory and speed.
+https://hakibenita.com/fast-load-data-python-postgresql
+
+The end result is truly impressive!
+‘Copy Data From a String Iterator’ is the ultimate solution.
+And here is the code: https://gist.github.com/hakib/7e723d2c113b947f7920bf55737e4d16
+
+The COPY and INSERT commands require a pre-created table using CREATE.
+The example provided above uses hard coded column names, and that is SQL best practice.
+To use COPY or INSERT without column names you have to make sure that all columns in the data frame match exactly all columns in the table in the database.
+This is the same approach as above, without column names, specific to pandas data frames since it uses the to_csv trick to great effect: 
+https://stackoverflow.com/questions/23103962/how-to-write-dataframe-to-postgres-table
+(See second response - "Faster option” by Aseem)
+
+ 
+## Alternative approach to obtain routable network for pgrouting
+The OSM data can be pre-processed with osm2po to get the correct topology for the road network:
+http://osm2po.de/
+
+Here a basic example of usage:
+https://anitagraser.com/2011/12/15/an-osm2po-quickstart/
+
+It's important to edit the config file to produce a sql output:
+https://gis.stackexchange.com/questions/175428/how-to-make-osm2po-5-1-write-an-sql-file
+
+```shell script
+######################################################################
+#
+# POSTPROCESSORS
+#
+######################################################################
+# uncomment and edit these lines
+postp.0.class = de.cm.osm2po.plugins.postp.PgRoutingWriter
+
+postp.pipeOut = false
+```
+ 
+Possibly also edit the config file to tweak the handling of different tags, in the 'Way Tag Resolver' section of the config file.
+I don't have specific experience with that, needs to be figured out.
+
+Once the configuration is tweaked Command for processing the osm data from overpass:
+java -Xmx6g -jar osm2po-core-5.2.43-signed.jar prefix=vic tileSize=x vic-overpass-api-map.osm
+
+Command for processing the osm download from geofabrik:
+java -Xmx6g -jar osm2po-core-5.2.43-signed.jar prefix=es tileSize=x spain-latest.osm.pbf
 
 
 ### Notes:
