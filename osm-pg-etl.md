@@ -7,9 +7,10 @@ The first step is to create a new database for OpenStreetMap and load a pbf file
 Then we need to explore the contents of the tags, focusing on highways. The best is to summarise, tags, values and counts in tables.
 
 ## Creating a graph table
-TODO: undirected and directed graph
 
 TODO: rebuild road geometry topologically by interesection nodes
+
+TODO: undirected and directed graph (see https://wiki.openstreetmap.org/wiki/Key:oneway)
 
 Finally, we need to create a graph table, i.e. a table where the first and last node of the link are in separate attributes.
 We should include additional attributes necessary for analysis and visualisation.
@@ -18,6 +19,7 @@ An alternative is to create a netwrok table for GIS visualisation, with a lot mo
 Then extract graphs from that with a minimal set f attributes, i.e. node and edge ids, and a cost column.
 
 ## Converting to Graph object
+
 TODO: undirected and directed graphs
 
 Final step in python is to convert the data table with the edges list to a igraph Graph object.
