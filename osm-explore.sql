@@ -87,6 +87,24 @@ CREATE TABLE tags_summary.highway_tags_values AS
     ORDER BY tag, count DESC
 ;
 
+-- Explore tags in railway (public transport)
+DROP TABLE IF EXISTS tags_summary.railway_ways_values CASCADE;
+CREATE TABLE tags_summary.railway_ways_values AS
+    SELECT (tags -> 'railway') AS railway,  -- this gets the tag values into the attribute
+           count(*) AS count
+    FROM ways
+    WHERE (tags ? 'railway') = True -- filter ways with tag 'highway', any value
+    GROUP BY railway ORDER BY count DESC
+;
+
+DROP TABLE IF EXISTS tags_summary.railway_nodes_values CASCADE;
+CREATE TABLE tags_summary.railway_nodes_values AS
+    SELECT (tags -> 'railway') AS railway,  -- this gets the tag values into the attribute
+           count(*) AS count
+    FROM nodes
+    WHERE (tags ? 'railway') = True -- filter ways with tag 'highway', any value
+    GROUP BY railway ORDER BY count DESC
+;
 
 -- create a graph table
 CREATE SCHEMA graphs;
