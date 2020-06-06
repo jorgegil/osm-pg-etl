@@ -1,4 +1,4 @@
--- Exploring and Processing OSM data in PostgrSQL
+-- Exploring and Processing OSM data in PostgreSQL
 
 -- Define functions
 CREATE OR REPLACE FUNCTION get_ints_from_text(TEXT) RETURNS int[] AS $$
@@ -87,6 +87,7 @@ CREATE TABLE tags_summary.highway_tags_values AS
     ORDER BY tag, count DESC
 ;
 
+
 -- Explore tags in railway (public transport)
 DROP TABLE IF EXISTS tags_summary.railway_ways_values CASCADE;
 CREATE TABLE tags_summary.railway_ways_values AS
@@ -106,74 +107,52 @@ CREATE TABLE tags_summary.railway_nodes_values AS
     GROUP BY railway ORDER BY count DESC
 ;
 
--- create a graph table
-CREATE SCHEMA graphs;
 
--- In this step one has to filter out what we don't want in the graph (if single mode)
--- In this example we ger a simple road network
-DROP TABLE IF EXISTS graphs.car_network CASCADE;
-CREATE TABLE graphs.car_network AS
-    SELECT nodes[1] AS start_node, nodes[array_upper(nodes, 1)] as end_node, id as edge_id, tags,
-           ST_Length(linestring::geography)/1000 AS length,  (get_ints_from_text((tags -> 'maxspeed')))[1] AS speed_limit, (tags -> 'highway') AS highway, linestring
-    FROM ways
-    WHERE
-        -- what to include from the highway tags
-        (tags -> 'highway') IN ('motorway','primary','tertiary','secondary','primary_link','tertiary_link','secondary_link',
-                                    'trunk','residential','unclassified','living_street')
+-- Summarising ways topology
+CREATE SCHEMA topology_summary;
+
+-- Identify way nodes that are shared by more than one linestring of highways
+DROP TABLE IF EXISTS topology_summary.ways_shared_nodes;
+CREATE TABLE topology_summary.ways_shared_nodes AS
+    SELECT a.node_id, a.count
+    FROM (
+        SELECT node_id, count(*) count
+        FROM way_nodes
+        WHERE way_id IN (SELECT id FROM ways WHERE (tags ? 'highway') = True)
+        GROUP BY node_id
+        ) AS a
+    WHERE a.count > 1
 ;
-DELETE FROM graphs.car_network WHERE
-        -- what to exclude from other tags
-        (tags -> 'bicycle') IN ('designated')
-        OR (tags -> 'foot') IN ('designated')
-        OR (tags -> 'bus') IN ('designated')
-        OR (tags -> 'footway') IN ('sidewalk','crossing')
-        OR (tags -> 'motor_vehicle') IN ('no','private')
-        OR (tags -> 'access') IN ('no','private')
-        OR (tags -> 'service') IN ('parking_aisle','parking')
-;
--- Create a table to summarise irregular maxspeed values of highways
-DROP TABLE IF EXISTS graphs.highway_maxspeed_values;
-CREATE TABLE graphs.highway_maxspeed_values AS
-    SELECT highway, speed_limit, count(*) AS count FROM
-        (SELECT highway AS highway, speed_limit AS speed_limit
-            FROM graphs.car_network
-        ) AS stat
-    GROUP BY highway, speed_limit
-    ORDER BY highway, count DESC
+-- even better, using the final road network
+DROP TABLE IF EXISTS topology_summary.ways_shared_nodes;
+CREATE TABLE topology_summary.ways_shared_nodes AS
+    SELECT a.node_id, a.count
+    FROM (
+        SELECT node_id, count(*) count
+        FROM way_nodes
+        WHERE way_id IN (SELECT edge_id FROM graphs.car_network)
+        GROUP BY node_id
+        ) AS a
+    WHERE a.count > 1
 ;
 
--- Create a table to summarise median maxspeed values of highways for replacing NULLs in car_network
-DROP TABLE IF EXISTS graphs.highway_maxspeed_median;
-CREATE TABLE graphs.highway_maxspeed_median AS
-    SELECT highway, median(speed_limit) FROM graphs.car_network GROUP BY highway
+-- Identify ways max node in sequence
+DROP TABLE IF EXISTS topology_summary.ways_length;
+CREATE TABLE topology_summary.ways_length AS
+    SELECT way_id, length
+    FROM (SELECT way_id, max(sequence_id) length
+        FROM way_nodes
+        GROUP BY way_id) AS a
+    WHERE length > 1
 ;
 
--- Update car_network where there are NULLs with the median value of their highway category
-UPDATE graphs.car_network
-    SET speed_limit = graphs.highway_maxspeed_median.median
-    FROM graphs.highway_maxspeed_median
-    WHERE speed_limit is NULL
-    AND graphs.highway_maxspeed_median.highway = graphs.car_network.highway
+-- Identify ways with split nodes - not at the start or end
+DROP TABLE IF EXISTS topology_summary.ways_split_nodes;
+CREATE TABLE topology_summary.ways_split_nodes AS
+    SELECT way_id, node_id, sequence_id
+    FROM way_nodes AS n
+    WHERE sequence_id > 0
+    AND node_id IN (SELECT node_id FROM topology_summary.ways_shared_nodes)
+    AND EXISTS (SELECT 1 FROM topology_summary.ways_length AS w WHERE n.way_id = w.way_id AND n.sequence_id < w.length)
 ;
 
--- Create network nodes table for further routing with iGraph
-DROP TABLE IF EXISTS graphs.car_network_nodes;
-CREATE TABLE graphs.car_network_nodes AS
-SELECT id AS node_id, ST_AsText(ST_Transform(geom, 4326)) AS node_coord
-        FROM nodes WHERE id IN (SELECT DISTINCT start_node FROM graphs.car_network UNION SELECT end_node FROM graphs.car_network)
-;
-
--- We can include more features and add boolean attributes for each mode to allow selecting different subgraphs
--- In this case it's clearer if we create a table and insert the elements of each mode.
-CREATE TABLE graphs.car_network (
-    id BIGINT,
-    tags hstore,
-    geom geometry (LineString,4326),
-    start_node BIGINT,
-    end_node BIGINT,
-    length INTEGER,
-    speed_limit INTEGER,
-    car BOOLEAN,
-    pedestrian BOOLEAN,
-    cycling BOOLEAN
-);
