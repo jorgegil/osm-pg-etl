@@ -136,23 +136,45 @@ CREATE TABLE topology_summary.ways_shared_nodes AS
     WHERE a.count > 1
 ;
 
--- Identify ways max node in sequence
+-- Identify ways sequence maximum: total number of nodes
 DROP TABLE IF EXISTS topology_summary.ways_length;
 CREATE TABLE topology_summary.ways_length AS
-    SELECT way_id, length
-    FROM (SELECT way_id, max(sequence_id) length
-        FROM way_nodes
-        GROUP BY way_id) AS a
-    WHERE length > 1
+    SELECT DISTINCT ON (way_id) way_id, sequence_id AS length, node_id
+    FROM way_nodes
+    WHERE way_id IN (SELECT id FROM ways WHERE (tags ? 'highway') = True)
+    AND sequence_id > 1
+    ORDER BY way_id, sequence_id DESC
 ;
 
--- Identify ways with split nodes - not at the start or end
+-- Identify ways with split nodes - not at the start nor end
 DROP TABLE IF EXISTS topology_summary.ways_split_nodes;
 CREATE TABLE topology_summary.ways_split_nodes AS
     SELECT way_id, node_id, sequence_id
     FROM way_nodes AS n
-    WHERE sequence_id > 0
+    WHERE way_id IN (SELECT id FROM ways WHERE (tags ? 'highway') = True)
+    AND sequence_id > 0
     AND node_id IN (SELECT node_id FROM topology_summary.ways_shared_nodes)
     AND EXISTS (SELECT 1 FROM topology_summary.ways_length AS w WHERE n.way_id = w.way_id AND n.sequence_id < w.length)
 ;
 
+-- Identify ways nodes merge limits: used in approach 2
+DROP TABLE IF EXISTS topology_summary.ways_merge_limits;
+CREATE TABLE topology_summary.ways_merge_limits AS
+    SELECT way_id, lag(sequence_id, 1, 0) OVER (PARTITION BY way_id ORDER BY sequence_id) AS bottom_limit, sequence_id AS top_limit
+    FROM way_nodes AS n
+    WHERE way_id IN (SELECT id FROM ways WHERE (tags ? 'highway') = True)
+    AND sequence_id > 0
+    AND way_id IN (SELECT way_id FROM topology_summary.ways_split_nodes)
+    AND node_id IN (SELECT node_id FROM topology_summary.ways_shared_nodes) -- any of the intermediary nodes
+;
+-- or the last node if it's not a shared node (dead ends)
+INSERT INTO topology_summary.ways_merge_limits (way_id, bottom_limit, top_limit)
+    SELECT limits.way_id, limits.top_limit, length.length
+    FROM (SELECT DISTINCT ON (way_id) way_id, top_limit
+        FROM topology_summary.ways_merge_limits
+        ORDER BY way_id, top_limit DESC
+        ) AS limits,
+         topology_summary.ways_length AS length
+    WHERE limits.way_id = length.way_id
+    AND limits.top_limit < length.length
+;
