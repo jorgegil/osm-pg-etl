@@ -167,7 +167,7 @@ CREATE TABLE topology_summary.ways_merge_limits AS
     AND way_id IN (SELECT way_id FROM topology_summary.ways_split_nodes)
     AND node_id IN (SELECT node_id FROM topology_summary.ways_shared_nodes) -- any of the intermediary nodes
 ;
--- or the last node if it's not a shared node (dead ends)
+-- add the last node if it's not a shared node (dead ends)
 INSERT INTO topology_summary.ways_merge_limits (way_id, bottom_limit, top_limit)
     SELECT limits.way_id, limits.top_limit, length.length
     FROM (SELECT DISTINCT ON (way_id) way_id, top_limit
