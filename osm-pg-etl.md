@@ -1,32 +1,47 @@
 # Exploring and Processing OSM data in PostgrSQL
 
 ## Creating a database
-The first step is to create a new database for OpenStreetMap and load a pbf file of some dump
+The first step is to create a new database for OpenStreetMap, which needs PostGIS and the OSM schema loaded. 
+Then wwe load a pbf file of some country or region obtained from a complete OSM dump, for example from Geofabrik, using osmosis. 
+This is preferable to obtaining a simplified file, such as shape file or overpass osm file. 
+These formats do not follow the original topological structure and discard the topology information of nodes and ways.
+The topology is necessary for a complete and correct reconstruction of navigable networks.
 
 ## Exploring the OSM tags
 Then we need to explore the contents of the tags, focusing on highways. The best is to summarise, tags, values and counts in tables.
+The main tag is highway, with many different values. But other tags are also present in highway features, and influence and complement these,
+for example service, foot, access, bicycle, sidewalk, cycleway, footway, steps, bridge, to name the most common ones.
+All these must be looked into to undertand what they are representing, and to what extend they are on not covered by values
+in the highway tag. For example, the *highway* tag value *cycleway* can correspond in all cases to a tag *cycleway*, or maybe not.
+We mustn't forget that a common *highway* tag value is unclassified. 
 
 ## Creating a graph table
-
-TODO: rebuild road geometry topologically by interesection nodes
 
 TODO: undirected and directed graph (see https://wiki.openstreetmap.org/wiki/Key:oneway)
 
 Finally, we need to create a graph table, i.e. a table where the first and last node of the link are in separate attributes.
-We should include additional attributes necessary for analysis and visualisation.
+We should include additional attributes necessary for analysis and GIS visualisation, including all tags and geometry.
 
-An alternative is to create a netwrok table for GIS visualisation, with a lot more attributes, including all tags and geometry. 
-Then extract graphs from that with a minimal set f attributes, i.e. node and edge ids, and a cost column.
+1. Select the relevant links for the transport mode being represented, using selections of tags to add and to exclude;
+2. Break the geometry of links that continue over intersections. Here the topological approach is preferred;
+3. Calculate the length of the new links, and update the start/end nodes;
+4. Add any other attributes to the new links;
+5. Complete the graph adding the links that did not have to be split.
+
+For analysis in igraph we can extract from the database graphs with a minimal set of attributes, 
+i.e. node and edge ids, and cost column (s) only.
 
 ## Converting to Graph object
 
 TODO: undirected and directed graphs
 
 Final step in python is to convert the data table with the edges list to a igraph Graph object.
-Assuming we get the table from postgresql into a data frame, we iterate through the data frame extracting tuples, into a list or directly to the Graph method.
+Assuming we get the table from postgresql into a data frame, we iterate through the data frame extracting tuples, 
+into a list or directly to the Graph method.
 
 We can’t use the default igraph parameters for it to work, but instead: index=False, name=None. 
-The index because we already have a lot of indices in the data and igraph creates its own indices. We also don’t want the names to get regular tuples.
+The index because we already have a lot of indices in the data and igraph creates its own indices. 
+We also don’t want the names to get regular tuples.
 https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.itertuples.html
 
 The second step is run the iterator through the TupleList method of the Graph class of igraph.
@@ -118,8 +133,9 @@ postp.0.class = de.cm.osm2po.plugins.postp.PgRoutingWriter
 
 postp.pipeOut = false
 ```
- 
+
 Possibly also edit the config file to tweak the handling of different tags, in the 'Way Tag Resolver' section of the config file.
+The default configuration only extracts a very simple road network of the main roads.
 I don't have specific experience with that, needs to be figured out.
 
 Once the configuration is tweaked Command for processing the osm data from overpass:
