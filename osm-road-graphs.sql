@@ -168,3 +168,6 @@ CREATE TABLE graphs.car_network_merged_nodes AS
     SELECT id AS node_id, ST_AsText(ST_Transform(geom, 4326)) AS node_coord
     FROM nodes WHERE id IN (SELECT DISTINCT start_node FROM graphs.car_network UNION SELECT end_node FROM graphs.car_network)
 ;
+
+-- testing the weighted median function
+SELECT _weighted_median('graphs.car_network_merged','length','speed_limit');
