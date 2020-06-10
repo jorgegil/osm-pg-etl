@@ -8,7 +8,7 @@ CREATE SCHEMA graphs;
 DROP TABLE IF EXISTS graphs.car_network CASCADE;
 CREATE TABLE graphs.car_network AS
     SELECT nodes[1] AS start_node, nodes[array_upper(nodes, 1)] AS end_node, id AS edge_id, tags, nodes,
-           ST_Length(linestring::geography)/1000 AS length,  (get_ints_from_text((tags -> 'maxspeed')))[1] AS speed_limit, (tags -> 'highway') AS highway, linestring AS geom
+           ST_Length(ST_Transform(linestring, 3347)) AS length,  (get_ints_from_text((tags -> 'maxspeed')))[1] AS speed_limit, (tags -> 'highway') AS highway, linestring AS geom
     FROM ways
     WHERE
         -- what to include from the highway tags
