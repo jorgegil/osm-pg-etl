@@ -32,6 +32,14 @@ CREATE AGGREGATE median(anyelement) (
   INITCOND='{}'
 );
 
+CREATE OR REPLACE FUNCTION array_reverse(anyarray) RETURNS anyarray AS $$
+SELECT ARRAY(
+    SELECT $1[i]
+    FROM generate_subscripts($1,1) AS s(i)
+    ORDER BY i DESC
+);
+$$ LANGUAGE 'sql' STRICT IMMUTABLE;
+
 
 -- weighted median function
 -- based on code found here: https://forums.postgresql.fr/viewtopic.php?id=4529
@@ -40,7 +48,7 @@ CREATE AGGREGATE median(anyelement) (
 --  data table (string) - table name with data values
 --  x (string) - x column name, from which to calculate the median
 --  w (string) - weights column name
-CREATE OR REPLACE FUNCTION public._weighted_median(
+CREATE OR REPLACE FUNCTION public.weighted_median(
     vals regclass,
     x VARCHAR,
     w VARCHAR,
@@ -85,5 +93,5 @@ SELECT * FROM vals;
 SELECT median(k) FROM tags_summary.temp_table;
 SELECT median(k) FROM tags_summary.temp_table2;
 
-SELECT _weighted_median('tags_summary.temp_table','k','v');
-SELECT _weighted_median('tags_summary.temp_table2','k','v');
+SELECT weighted_median('tags_summary.temp_table','k','v');
+SELECT weighted_median('tags_summary.temp_table2','k','v');

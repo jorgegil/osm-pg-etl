@@ -74,3 +74,18 @@ CREATE TABLE tags_summary.railway_nodes_values AS
     WHERE (tags ? 'railway') = True -- filter ways with tag 'highway', any value
     GROUP BY railway ORDER BY count DESC
 ;
+
+
+-- Explore the road direction attribute
+-- highway = motorway is always directed.
+--DROP TABLE IF EXISTS tags_summary.highway_oneway_values;
+CREATE TABLE tags_summary.highway_oneway_values AS
+    SELECT highway, oneway, count(*) AS count FROM
+        (SELECT (tags -> 'highway') AS highway, (tags -> 'oneway') AS oneway
+            FROM ways
+            WHERE (tags ? 'oneway') = True
+            AND (tags ? 'highway') = True
+        ) AS stat
+    GROUP BY highway,oneway
+    ORDER BY highway,oneway, count DESC
+;
