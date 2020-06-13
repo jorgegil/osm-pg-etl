@@ -8,7 +8,8 @@ CREATE SCHEMA graphs;
 DROP TABLE IF EXISTS graphs.car_network CASCADE;
 CREATE TABLE graphs.car_network AS
     SELECT nodes[1] AS start_node, nodes[array_upper(nodes, 1)] AS end_node, id AS edge_id, tags, nodes,
-           ST_Length(ST_Transform(linestring, 3347)) AS length,  (get_ints_from_text((tags -> 'maxspeed')))[1] AS speed_limit, (tags -> 'highway') AS highway, linestring AS geom
+           ST_Length(ST_Transform(linestring, 3347)) AS length,  (get_ints_from_text((tags -> 'maxspeed')))[1] AS speed_limit,
+           (tags -> 'highway') AS highway, (tags -> 'oneway') AS oneway, linestring AS geom
     FROM ways
     WHERE
         -- what to include from the highway tags
@@ -113,7 +114,7 @@ INSERT INTO topology_summary.ways_merge_limits (way_id, bottom_limit, top_limit)
     AND limits.top_limit < length.length
 ;
 
--- Create a table with the ways nodes sequence, grouped accoprding to the shared nodes
+-- Create a table with the ways nodes sequence, grouped according to the shared nodes
 -- so that each way can be turned into multiple linestrings
 DROP TABLE IF EXISTS topology_summary.nodes_to_merge;
 CREATE TABLE topology_summary.nodes_to_merge AS
@@ -136,6 +137,7 @@ CREATE TABLE graphs.car_network_merged(
    length DOUBLE PRECISION,
    speed_limit INTEGER,
    highway TEXT,
+   oneway TEXT,
    geom geometry(Linestring, 4326)
 );
 INSERT INTO graphs.car_network_merged (edge_id, nodes, geom)
@@ -143,12 +145,12 @@ INSERT INTO graphs.car_network_merged (edge_id, nodes, geom)
 	FROM (SELECT * FROM topology_summary.nodes_to_merge ORDER BY sequence_id) AS ways, nodes
 	WHERE ways.node_id = nodes.id
     GROUP BY ways.way_id, ways.group_id
-    --ORDER BY ways.sequence_id
 ;
 UPDATE graphs.car_network_merged AS ways
     SET tags = road.tags,
         speed_limit  = road.speed_limit,
         highway = road.highway,
+        oneway = road.oneway,
         start_node = ways.nodes[1],
         end_node = ways.nodes[array_upper(ways.nodes, 1)],
         length = ST_Length(ways.geom::geography)/1000
@@ -156,8 +158,8 @@ UPDATE graphs.car_network_merged AS ways
     WHERE ways.edge_id = road.edge_id
 ;
 -- then append remaining roads that were not merged
-INSERT INTO graphs.car_network_merged(start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, geom)
-	SELECT start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, geom
+INSERT INTO graphs.car_network_merged(start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom)
+	SELECT start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom
 	FROM graphs.car_network as road
 	WHERE NOT EXISTS (SELECT 1 FROM graphs.car_network_merged AS a WHERE road.edge_id = a.edge_id)
 ;
@@ -169,5 +171,85 @@ CREATE TABLE graphs.car_network_merged_nodes AS
     FROM nodes WHERE id IN (SELECT DISTINCT start_node FROM graphs.car_network UNION SELECT end_node FROM graphs.car_network)
 ;
 
+
 -- testing the weighted median function
 SELECT _weighted_median('graphs.car_network_merged','length','speed_limit');
+
+
+
+-- The car_network_merged table has a list of start and end nodes, which works like an edge list from which to create an undirected graph.
+-- To create a directed graph we need to identify the direction restriction on some routes, and correct or extend the edge list for those cases
+-- The nodes table remain unchanged, it's the same for directed and undirected graphs
+DROP TABLE IF EXISTS graphs.car_network_directed CASCADE;
+CREATE TABLE graphs.car_network_directed(
+   sid SERIAL NOT NULL PRIMARY KEY,
+   start_node BIGINT,
+   end_node BIGINT,
+   edge_id BIGINT,
+   tags hstore,
+   nodes BIGINT[],
+   length DOUBLE PRECISION,
+   speed_limit INTEGER,
+   highway TEXT,
+   oneway TEXT,
+   geom geometry(Linestring, 4326)
+);
+-- first insert all links that are two ways
+INSERT INTO graphs.car_network_directed(start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom)
+	SELECT start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom
+	FROM graphs.car_network_merged as road
+    WHERE (oneway IS NULL OR oneway = 'no') AND highway != 'motorway'
+;
+-- add the reverse direction to the links
+INSERT INTO graphs.car_network_directed(start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom)
+	SELECT end_node, start_node, edge_id, tags, array_reverse(nodes), length, speed_limit, highway, oneway, geom
+	FROM graphs.car_network_merged as road
+    WHERE (oneway IS NULL OR oneway = 'no') AND highway != 'motorway'
+;
+-- insert the directed links (not reversed)
+INSERT INTO graphs.car_network_directed(start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom)
+	SELECT start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom
+	FROM graphs.car_network_merged as road
+    WHERE oneway = 'yes' OR (highway = 'motorway' AND oneway != '-1')
+;
+-- insert and revert the directed links that are drawn in reverse
+INSERT INTO graphs.car_network_directed(start_node, end_node, edge_id, tags, nodes, length, speed_limit, highway, oneway, geom)
+	SELECT end_node, start_node, edge_id, tags, array_reverse(nodes), length, speed_limit, highway, oneway, geom
+	FROM graphs.car_network_merged as road
+    WHERE oneway = '-1'
+;
+
+-- alternatively we only create a graph with the essential attributes
+DROP TABLE IF EXISTS graphs.car_graph_directed CASCADE;
+CREATE TABLE graphs.car_graph_directed(
+   sid SERIAL NOT NULL PRIMARY KEY,
+   start_node BIGINT,
+   end_node BIGINT,
+   length DOUBLE PRECISION,
+   speed_limit INTEGER
+);
+-- first insert all links that are two ways
+INSERT INTO graphs.car_graph_directed(start_node, end_node, length, speed_limit)
+	SELECT start_node, end_node, length, speed_limit
+	FROM graphs.car_network_merged as road
+    WHERE (oneway IS NULL OR oneway = 'no') AND highway != 'motorway'
+;
+-- add the reverse direction to the links
+INSERT INTO graphs.car_graph_directed(start_node, end_node, length, speed_limit)
+	SELECT end_node, start_node, length, speed_limit
+	FROM graphs.car_network_merged as road
+    WHERE (oneway IS NULL OR oneway = 'no') AND highway != 'motorway'
+;
+-- insert the directed links (not reversed)
+INSERT INTO graphs.car_graph_directed(start_node, end_node, length, speed_limit)
+	SELECT start_node, end_node, length, speed_limit
+	FROM graphs.car_network_merged as road
+    WHERE oneway = 'yes' OR (highway = 'motorway' AND oneway != '-1')
+;
+-- insert and revert the directed links that are drawn in reverse
+INSERT INTO graphs.car_graph_directed(start_node, end_node, length, speed_limit)
+	SELECT end_node, start_node, length, speed_limit
+	FROM graphs.car_network_merged as road
+    WHERE oneway = '-1'
+;
+
