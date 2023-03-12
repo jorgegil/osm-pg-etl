@@ -2,8 +2,8 @@
 
 ## Creating a database
 The first step is to create a new database for OpenStreetMap, which needs PostGIS and the OSM schema loaded. 
-Then wwe load a pbf file of some country or region obtained from a complete OSM dump, for example from Geofabrik, using osmosis. 
-This is preferable to obtaining a simplified file, such as shape file or overpass osm file. 
+Then we load a pbf file of some country or region obtained from a complete OSM dump, for example from Geofabrik, using Osmosis. 
+This is preferable to obtaining a simplified file, such as shape file or an overpass osm file. 
 These formats do not follow the original topological structure and discard the topology information of nodes and ways.
 The topology is necessary for a complete and correct reconstruction of navigable networks.
 
@@ -149,5 +149,6 @@ java -Xmx6g -jar osm2po-core-5.2.43-signed.jar prefix=es tileSize=x spain-latest
 A nice tutorial to get started: https://www.r-spatial.org/2017/07/14/large_scale_osm_in_r
 
 Osmosis latest release: https://github.com/openstreetmap/osmosis/releases
+And docs: https://wiki.openstreetmap.org/wiki/Osmosis/Detailed_Usage_0.48
 
 For more basic info on PostgreSQL: https://www.codementor.io/@engineerapart/getting-started-with-postgresql-on-mac-osx-are8jcopb

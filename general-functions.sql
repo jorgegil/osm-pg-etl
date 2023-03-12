@@ -25,6 +25,7 @@ CREATE FUNCTION _final_median(anyarray) RETURNS float8 AS $$
   ) q2;
 $$ LANGUAGE SQL IMMUTABLE;
 
+-- something wrong with array functions?
 CREATE AGGREGATE median(anyelement) (
   SFUNC=array_append,
   STYPE=anyarray,
@@ -61,14 +62,45 @@ BEGIN
     EXECUTE format(
         'WITH weighted_median AS (SELECT %I AS x, '||
         'last_value(%I) OVER (ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS prevx, '||
-        'SUM(%I) OVER (ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runsum, '||
-        'SUM(%I) OVER (ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prevsum, '||
-        'SUM(%I) OVER ()  AS total_weight FROM  %s) '||
+        'SUM(coalesce(%I,0)) OVER (ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runsum, '||
+        'SUM(coalesce(%I,0)) OVER (ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prevsum, '||
+        'SUM(coalesce(%I,0)) OVER ()  AS total_weight FROM  %s) '||
         'SELECT CASE WHEN %L %% 2 = 0 THEN (avg(x)+avg(prevx))/2.0 ELSE avg(x) END '||
         'FROM weighted_median ' ||
         'WHERE total_weight / 2 BETWEEN prevsum AND runsum'
         ,x,x,x,w,x,w,x,w,vals,table_size
         ) INTO median;
+END
+$$
+LANGUAGE plpgsql;
+
+
+-- weighted median function with grouping
+-- input parameters:
+--  data table (string) - table name with data values
+--  x (string) - x column name, from which to calculate the median
+--  w (string) - weights column name
+--  g (string) - grouping column name
+CREATE OR REPLACE FUNCTION public.weighted_median_by_group(
+    vals regclass,
+    x VARCHAR,
+    w VARCHAR,
+    g VARCHAR)
+    RETURNS TABLE(group_id TEXT, weighted_median NUMERIC)
+    AS $$
+BEGIN
+    RETURN QUERY EXECUTE format(
+        'WITH weighted_median AS (SELECT %I AS g, %I AS x, '||
+        'last_value(%I) OVER (PARTITION BY %I ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS prevx, '||
+        'SUM(coalesce(%I,0)) OVER (PARTITION BY %I ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runsum, '||
+        'SUM(coalesce(%I,0)) OVER (PARTITION BY %I ORDER BY %I ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prevsum, '||
+        'SUM(coalesce(%I,0)) OVER (PARTITION BY %I) AS total_weight FROM  %s) '||
+        'SELECT a.g::TEXT, CASE WHEN max(b.count) %% 2 = 0 THEN ((max(a.x)+max(a.prevx))/2.0)::numeric ELSE max(a.x)::numeric END '||
+        'FROM weighted_median AS a, (SELECT %I, count(*) count FROM %s GROUP BY %I) AS b ' ||
+        'WHERE (total_weight / 2 BETWEEN prevsum AND runsum) AND a.g = b.%I '||
+        'GROUP BY a.g'
+        ,g,x,x,g,x,w,g,x,w,g,x,w,g,vals,g,vals,g,g
+        );
 END
 $$
 LANGUAGE plpgsql;
