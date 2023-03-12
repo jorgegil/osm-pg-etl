@@ -101,3 +101,7 @@ Temporary Items
 .apdisk
 
 .idea/*
+.idea/dataSources.xml
+.idea/misc.xml
+.idea/osm-pg-etl.iml
+.idea/sqldialects.xml
