@@ -172,9 +172,9 @@ CREATE TABLE graphs.car_network_merged_nodes AS
 ;
 
 
--- testing the weighted median function
+-- testing the weighted median functions
 SELECT _weighted_median('graphs.car_network_merged','length','speed_limit');
-
+SELECT * FROM public.weighted_median_by_group('graphs.car_network_merged','length','speed_limit','highway');
 
 
 -- The car_network_merged table has a list of start and end nodes, which works like an edge list from which to create an undirected graph.

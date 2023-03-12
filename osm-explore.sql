@@ -6,7 +6,7 @@ CREATE SCHEMA tags_summary;
 
 -- filtering ways that represent roads
 -- highway is the main tag for roads
---DROP TABLE IF EXISTS tags_summary.highway_values;
+DROP TABLE IF EXISTS tags_summary.highway_values;
 CREATE TABLE tags_summary.highway_values AS
     SELECT (tags -> 'highway') AS highway,  -- this gets the tag values into the attribute
            count(*) AS count
@@ -17,7 +17,7 @@ CREATE TABLE tags_summary.highway_values AS
 
 -- Summarising tags in the ways
 -- but ways come with other tags that also define what kind of way it is, what mode can use it, etc.
---DROP TABLE IF EXISTS tags_summary.highway_other_tags;
+DROP TABLE IF EXISTS tags_summary.highway_other_tags;
 CREATE TABLE tags_summary.highway_other_tags AS
     SELECT tag, count(*) AS count FROM
         (SELECT (each(tags)).key AS tag
@@ -28,7 +28,7 @@ CREATE TABLE tags_summary.highway_other_tags AS
         ORDER BY count DESC, tag
 ;
 -- analyse highways of type 'service', and the tag service
---DROP TABLE IF EXISTS tags_summary.highway_service;
+DROP TABLE IF EXISTS tags_summary.highway_service;
 CREATE TABLE tags_summary.highway_service AS
     SELECT tag, count(*) AS count FROM
         (SELECT (tags -> 'service') AS tag
@@ -39,7 +39,7 @@ CREATE TABLE tags_summary.highway_service AS
         ORDER BY count DESC, tag
 ;
 -- analyse highways values of most other tags
---DROP TABLE IF EXISTS tags_summary.highway_tags_values;
+DROP TABLE IF EXISTS tags_summary.highway_tags_values;
 CREATE TABLE tags_summary.highway_tags_values AS
     SELECT tag, value, count(*) AS count FROM
         (SELECT (each(tags)).key AS tag, (each(tags)).value AS value

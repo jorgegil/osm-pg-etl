@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# just got recommended to chage priviledges on the pgpass file
+# just got recommended to change privileges on the pgpass file
 chmod 0600 .pgpass
 
 # create a database
