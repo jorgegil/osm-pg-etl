@@ -89,3 +89,163 @@ CREATE TABLE tags_summary.highway_oneway_values AS
     GROUP BY highway,oneway
     ORDER BY highway,oneway, count DESC
 ;
+
+
+-- Explore pois tags in nodes
+DROP TABLE IF EXISTS tags_summary.amenity_nodes_values;
+CREATE TABLE tags_summary.amenity_nodes_values AS
+    SELECT amenity, count(*) AS count FROM
+        (SELECT (tags -> 'amenity') AS amenity
+            FROM nodes
+            WHERE (tags ? 'amenity') = TRUE
+        ) AS stat
+    GROUP BY amenity
+    ORDER BY amenity, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.shop_nodes_values;
+CREATE TABLE tags_summary.shop_nodes_values AS
+    SELECT shop, count(*) AS count FROM
+        (SELECT (tags -> 'shop') AS shop
+            FROM nodes
+            WHERE (tags ? 'shop') = TRUE
+        ) AS stat
+    GROUP BY shop
+    ORDER BY shop, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.leisure_nodes_values;
+CREATE TABLE tags_summary.leisure_nodes_values AS
+    SELECT leisure, count(*) AS count FROM
+        (SELECT (tags -> 'leisure') AS leisure
+            FROM nodes
+            WHERE (tags ? 'leisure') = TRUE
+        ) AS stat
+    GROUP BY leisure
+    ORDER BY leisure, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.craft_nodes_values;
+CREATE TABLE tags_summary.craft_nodes_values AS
+    SELECT craft, count(*) AS count FROM
+        (SELECT (tags -> 'craft') AS craft
+            FROM nodes
+            WHERE (tags ? 'craft') = TRUE
+        ) AS stat
+    GROUP BY craft
+    ORDER BY craft, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.sport_nodes_values;
+CREATE TABLE tags_summary.sport_nodes_values AS
+    SELECT sport, count(*) AS count FROM
+        (SELECT (tags -> 'sport') AS sport
+            FROM nodes
+            WHERE (tags ? 'sport') = TRUE
+        ) AS stat
+    GROUP BY sport
+    ORDER BY sport, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.tourism_nodes_values;
+CREATE TABLE tags_summary.tourism_nodes_values AS
+    SELECT tourism, count(*) AS count FROM
+        (SELECT (tags -> 'tourism') AS tourism
+            FROM nodes
+            WHERE (tags ? 'tourism') = TRUE
+        ) AS stat
+    GROUP BY tourism
+    ORDER BY tourism, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.office_nodes_values;
+CREATE TABLE tags_summary.office_nodes_values AS
+    SELECT office, count(*) AS count FROM
+        (SELECT (tags -> 'office') AS office
+            FROM nodes
+            WHERE (tags ? 'office') = TRUE
+        ) AS stat
+    GROUP BY office
+    ORDER BY office, count DESC
+;
+
+
+-- Explore pois tags in ways
+DROP TABLE IF EXISTS tags_summary.amenity_ways_values;
+CREATE TABLE tags_summary.amenity_ways_values AS
+    SELECT amenity, count(*) AS count FROM
+        (SELECT (tags -> 'amenity') AS amenity
+            FROM ways
+            WHERE (tags ? 'amenity') = TRUE
+        ) AS stat
+    GROUP BY amenity
+    ORDER BY amenity, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.sport_ways_values;
+CREATE TABLE tags_summary.sport_ways_values AS
+    SELECT sport, count(*) AS count FROM
+        (SELECT (tags -> 'sport') AS sport
+            FROM ways
+            WHERE (tags ? 'sport') = TRUE
+        ) AS stat
+    GROUP BY sport
+    ORDER BY sport, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.leisure_ways_values;
+CREATE TABLE tags_summary.leisure_ways_values AS
+    SELECT leisure, count(*) AS count FROM
+        (SELECT (tags -> 'leisure') AS leisure
+            FROM ways
+            WHERE (tags ? 'leisure') = TRUE
+        ) AS stat
+    GROUP BY leisure
+    ORDER BY leisure, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.landuse_ways_values;
+CREATE TABLE tags_summary.landuse_ways_values AS
+    SELECT landuse, count(*) AS count FROM
+        (SELECT (tags -> 'landuse') AS landuse
+            FROM ways
+            WHERE (tags ? 'landuse') = TRUE
+        ) AS stat
+    GROUP BY landuse
+    ORDER BY landuse, count DESC
+;
+
+-- Explore pois tags in relations
+DROP TABLE IF EXISTS tags_summary.amenity_relations_values;
+CREATE TABLE tags_summary.amenity_relations_values AS
+    SELECT amenity, count(*) AS count FROM
+        (SELECT (tags -> 'amenity') AS amenity
+            FROM relations
+            WHERE (tags ? 'amenity') = TRUE
+        ) AS stat
+    GROUP BY amenity
+    ORDER BY amenity, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.leisure_relations_values;
+CREATE TABLE tags_summary.leisure_relations_values AS
+    SELECT leisure, count(*) AS count FROM
+        (SELECT (tags -> 'leisure') AS leisure
+            FROM relations
+            WHERE (tags ? 'leisure') = TRUE
+        ) AS stat
+    GROUP BY leisure
+    ORDER BY leisure, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.sport_relations_values;
+CREATE TABLE tags_summary.sport_relations_values AS
+    SELECT sport, count(*) AS count FROM
+        (SELECT (tags -> 'sport') AS sport
+            FROM relations
+            WHERE (tags ? 'sport') = TRUE
+        ) AS stat
+    GROUP BY sport
+    ORDER BY sport, count DESC
+;
+DROP TABLE IF EXISTS tags_summary.landuse_relations_values;
+CREATE TABLE tags_summary.landuse_relations_values AS
+    SELECT landuse, count(*) AS count FROM
+        (SELECT (tags -> 'landuse') AS landuse
+            FROM relations
+            WHERE (tags ? 'landuse') = TRUE
+        ) AS stat
+    GROUP BY landuse
+    ORDER BY landuse, count DESC
+;
+
+

@@ -117,7 +117,7 @@ UPDATE graphs.complete_network SET
 UPDATE graphs.complete_network SET
     pedestrian = 1 WHERE
         pedestrian IS NULL AND
-        (tags -> 'highway') IN ('steps', 'footway', 'pedestrian', 'bridleway','elevator','sidewalk','living_street')
+        (tags -> 'highway') IN ('steps', 'footway', 'pedestrian', 'bridleway','elevator','sidewalk','living_street', 'path')
 ;
 UPDATE graphs.complete_network SET
     pedestrian = 1 WHERE
