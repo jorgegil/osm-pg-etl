@@ -146,7 +146,7 @@ java -Xmx6g -jar osm2po-core-5.2.43-signed.jar prefix=es tileSize=x spain-latest
 
 
 ### Notes:
-A nice tutorial to get started: https://www.r-spatial.org/2017/07/14/large_scale_osm_in_r
+A nice tutorial to get started: https://r-spatial.org/2017/07/14/Large_scale_OSM_in_R.html
 
 Osmosis latest release: https://github.com/openstreetmap/osmosis/releases
 And docs: https://wiki.openstreetmap.org/wiki/Osmosis/Detailed_Usage_0.48
